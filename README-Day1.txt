@@ -1,4 +1,4 @@
-DAY 1 – Real Estate Listing App (ikman.lk style)
+DAY 1 – Real Estate Listing App 
 --------------------------------------------------
 What you have here:
 - index.html: Home page with hero + demo search + sample cards
