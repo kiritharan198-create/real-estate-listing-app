@@ -99,6 +99,63 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
       <?php if ($result && $result->num_rows > 0): ?>
         <?php while($row = $result->fetch_assoc()): ?>
           <tr>
+           <td>
+  <a href="update.php?id=<?php echo $row['id']; ?>" class="action-btn edit-btn">
+    <i class="bi bi-pencil-square"></i> Edit
+  </a>
+
+  <a href="delete.php?id=<?php echo $row['id']; ?>" class="action-btn delete-btn"
+     onclick="return confirm('Are you sure you want to delete this property?');">
+    <i class="bi bi-trash"></i> Delete
+  </a>
+</td>
+
+<style>
+/* Common button style */
+.action-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;           /* Slightly rounded */
+    transition: all 0.3s ease;    /* Smooth hover */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-right: 5px;             /* Space between buttons */
+}
+
+/* Edit button */
+.edit-btn {
+    background: linear-gradient(45deg, #28a745, #218838);
+}
+
+.edit-btn:hover {
+    background: linear-gradient(45deg, #218838, #1e7e34);
+    transform: scale(1.1);         /* Grow slightly on hover */
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+/* Delete button */
+.delete-btn {
+    background: linear-gradient(45deg, #dc3545, #c82333);
+}
+
+.delete-btn:hover {
+    background: linear-gradient(45deg, #c82333, #bd2130);
+    transform: scale(1.1);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+/* Icon spacing */
+.action-btn i {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+</style>
+
+
+
             <td><?php echo (int)$row['id']; ?></td>
             <td>
               <div class="fw-semibold"><?php echo h($row['title']); ?></div>
