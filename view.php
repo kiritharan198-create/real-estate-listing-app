@@ -1,218 +1,102 @@
-<?php
-include 'config.php';
-
-/* -------- Settings -------- */
-$limit  = isset($_GET['limit']) ? max(1, min(50, (int)$_GET['limit'])) : 10; // 5–10 is fine
-$page   = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($page - 1) * $limit;
-
-$search = isset($_GET['search']) ? trim($_GET['search']) : '';
-$where  = '';
-if ($search !== '') {
-  $s = $conn->real_escape_string($search);
-  // Search by title, location, or type
-  $where = "WHERE title LIKE '%$s%' OR location LIKE '%$s%' OR `type` LIKE '%$s%'";
-}
-
-/* -------- Count for pagination -------- */
-$countSql  = "SELECT COUNT(*) AS total FROM properties $where";
-$countRes  = $conn->query($countSql);
-$totalRows = $countRes ? (int)$countRes->fetch_assoc()['total'] : 0;
-$totalPages = max(1, (int)ceil($totalRows / $limit));
-
-/* -------- Fetch rows -------- */
-$sql = "SELECT id, title, price, location, `type`, image_url, description, created_at
-        FROM properties
-        $where
-        ORDER BY id DESC
-        LIMIT $limit OFFSET $offset";
-$result = $conn->query($sql);
-
-/* Safe output */
-function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
-?>
-<!DOCTYPE html>
+<?php require 'config.php'; ?>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>View Properties - Real Estate Listing App</title>
+  <meta charset="utf-8">
+  <title>Properties</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/css/styles.css" rel="stylesheet">
 </head>
 <body>
-<div class="container mt-5">
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="view.php">RealEstate</a>
+    <a class="btn btn-success" href="create.php">+ Add Property</a>
+  </div>
+</nav>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="m-0">All Properties</h2>
-    <span class="badge text-bg-secondary">
-      <?php
-        $from = $totalRows ? ($offset + 1) : 0;
-        $to   = min($offset + $limit, $totalRows);
-       echo "Showing {$from}-{$to} of {$totalRows}";
+<div class="container-fluid py-3">
 
-      ?>
-    </span>
+  <?php if (!empty($_GET['status'])):
+    $map = ['created'=>'Entry created successfully!',
+            'updated'=>'Entry updated successfully!',
+            'deleted'=>'Entry deleted successfully!',
+            'error'=>'Something went wrong.'];
+    $msg = $map[$_GET['status']] ?? '';
+    if ($msg): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <?= htmlspecialchars($msg) ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <?php endif; endif; ?>
+
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <input id="tableFilter" class="form-control" placeholder="Search title/location/type...">
+    </div>
   </div>
 
-  <!-- Search -->
-  <form method="GET" class="mb-3">
-    <div class="row g-2">
-      <div class="col-sm-8 col-md-9">
-        <input type="text" name="search" class="form-control"
-               placeholder="Search by Title, Location, or Type"
-               value="<?php echo h($search); ?>">
-      </div>
-      <div class="col-sm-2 col-6">
-        <select name="limit" class="form-select">
-          <?php foreach([5,10,15,20] as $opt):
-            $sel = $limit == $opt ? 'selected' : ''; ?>
-            <option value="<?php echo $opt; ?>" <?php echo $sel; ?>>
-              <?php echo $opt; ?> / page
-            </option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <div class="col-sm-2 col-6 d-grid">
-        <button class="btn btn-primary">Search</button>
-      </div>
-    </div>
-    <?php if ($search !== ''): ?>
-      <a href="view.php" class="small d-inline-block mt-2">Reset filters</a>
-    <?php endif; ?>
-  </form>
-
-  <!-- Table -->
   <div class="table-responsive">
-    <table class="table table-bordered table-striped table-hover align-middle">
-      <thead class="table-light">
+    <table class="table table-striped align-middle" id="entriesTable">
+      <thead>
         <tr>
-          <th style="width:70px;">ID</th>
-          <th>Title</th>
-          <th style="width:140px;">Price (LKR)</th>
-          <th style="width:160px;">Location</th>
-          <th style="width:140px;">Type</th>
-          <th style="width:130px;">Image</th>
-          <th style="width:180px;">Created At</th>
+          <th>#</th>
+          <th role="button" data-sort="1">Title ▲▼</th>
+          <th role="button" data-sort="2">Location ▲▼</th>
+          <th role="button" data-sort="3">Type ▲▼</th>
+          <th role="button" data-sort="4">Phone ▲▼</th>
+          <th role="button" data-sort="5">Price ▲▼</th>
+          <th>Image</th>
+          <th>Created</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-      <?php if ($result && $result->num_rows > 0): ?>
-        <?php while($row = $result->fetch_assoc()): ?>
-          <tr>
-           <td>
-  <a href="update.php?id=<?php echo $row['id']; ?>" class="action-btn edit-btn">
-    <i class="bi bi-pencil-square"></i> Edit
-  </a>
-
-  <a href="delete.php?id=<?php echo $row['id']; ?>" class="action-btn delete-btn"
-     onclick="return confirm('Are you sure you want to delete this property?');">
-    <i class="bi bi-trash"></i> Delete
-  </a>
-</td>
-
-<style>
-/* Common button style */
-.action-btn {
-    display: inline-block;
-    padding: 8px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;           /* Slightly rounded */
-    transition: all 0.3s ease;    /* Smooth hover */
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    margin-right: 5px;             /* Space between buttons */
-}
-
-/* Edit button */
-.edit-btn {
-    background: linear-gradient(45deg, #28a745, #218838);
-}
-
-.edit-btn:hover {
-    background: linear-gradient(45deg, #218838, #1e7e34);
-    transform: scale(1.1);         /* Grow slightly on hover */
-    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-}
-
-/* Delete button */
-.delete-btn {
-    background: linear-gradient(45deg, #dc3545, #c82333);
-}
-
-.delete-btn:hover {
-    background: linear-gradient(45deg, #c82333, #bd2130);
-    transform: scale(1.1);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-}
-
-/* Icon spacing */
-.action-btn i {
-    margin-right: 6px;
-    vertical-align: middle;
-}
-</style>
-
-
-
-            <td><?php echo (int)$row['id']; ?></td>
-            <td>
-              <div class="fw-semibold"><?php echo h($row['title']); ?></div>
-              <?php if (!empty($row['description'])): ?>
-                <div class="text-muted small"><?php echo h($row['description']); ?></div>
-              <?php endif; ?>
-            </td>
-            <td><?php echo number_format((int)$row['price']); ?></td>
-            <td><?php echo h($row['location']); ?></td>
-            <td><?php echo h($row['type']); ?></td>
-            <td>
-              <?php if (!empty($row['image_url'])): ?>
-                <img src="<?php echo h($row['image_url']); ?>" alt="property" class="img-thumbnail" style="max-width:120px; max-height:80px;">
-              <?php else: ?>
-                <span class="text-muted">—</span>
-              <?php endif; ?>
-            </td>
-            <td><?php echo h($row['created_at']); ?></td>
-          </tr>
-        <?php endwhile; ?>
-      <?php else: ?>
-        <tr><td colspan="7" class="text-center text-muted">No entries found</td></tr>
-      <?php endif; ?>
+      <?php
+        $res = $conn->query("SELECT id,title,location,type,phone,price,image_url,created_at FROM properties ORDER BY id DESC");
+        while($row = $res->fetch_assoc()):
+      ?>
+        <tr>
+          <td><?= (int)$row['id'] ?></td>
+          <td><?= htmlspecialchars($row['title']) ?></td>
+          <td><?= htmlspecialchars($row['location']) ?></td>
+          <td><?= htmlspecialchars($row['type']) ?></td>
+          <td><?= htmlspecialchars($row['phone']) ?></td>
+          <td><?= number_format((int)$row['price']) ?></td>
+          <td>
+            <?php if(!empty($row['image_url'])): ?>
+              <img src="<?= htmlspecialchars($row['image_url']) ?>" alt="img" style="height:40px">
+            <?php endif; ?>
+          </td>
+          <td><?= htmlspecialchars($row['created_at']) ?></td>
+          <td class="d-flex gap-2">
+            <a class="btn btn-primary btn-sm" href="update.php?id=<?= (int)$row['id'] ?>">Edit</a>
+            <button type="button" class="btn btn-danger btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#deleteModal"
+                    data-id="<?= (int)$row['id'] ?>">Delete</button>
+          </td>
+        </tr>
+      <?php endwhile; ?>
       </tbody>
     </table>
   </div>
-
-  <!-- Pagination -->
-  <?php if ($totalPages > 1): ?>
-    <nav aria-label="Page navigation">
-      <ul class="pagination">
-        <?php
-          $qs = function($p) use ($search, $limit) {
-            return '?search=' . urlencode($search) . "&limit=$limit&page=$p";
-          };
-        ?>
-        <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-          <a class="page-link" href="<?php echo $qs($page-1); ?>">Previous</a>
-        </li>
-
-        <?php
-          $start = max(1, $page - 2);
-          $end   = min($totalPages, $page + 2);
-          for ($p = $start; $p <= $end; $p++):
-        ?>
-          <li class="page-item <?php echo $p == $page ? 'active' : ''; ?>">
-            <a class="page-link" href="<?php echo $qs($p); ?>"><?php echo $p; ?></a>
-          </li>
-        <?php endfor; ?>
-
-        <li class="page-item <?php echo $page >= $totalPages ? 'disabled' : ''; ?>">
-          <a class="page-link" href="<?php echo $qs($page+1); ?>">Next</a>
-        </li>
-      </ul>
-    </nav>
-  <?php endif; ?>
-
 </div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title">Confirm Delete</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">Are you sure you want to delete this entry?</div>
+    <div class="modal-footer">
+      <a id="confirmDelete" href="#" class="btn btn-danger">Yes, Delete</a>
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+    </div>
+  </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/main.js"></script>
 </body>
 </html>
